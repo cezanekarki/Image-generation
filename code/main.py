@@ -1,23 +1,3 @@
-import multiprocessing
-from datasets import DatasetLoadTransform
-import os
-import nltk
-import spacy
-from stackgan_runner import GAN
-from utils import mkdir_p
-from configuration import conf, cfg
-import torch.backends.cudnn as cudnn
-import torch
-import torchvision.transforms as transforms
-from transformers import BertTokenizer
-import argparse
-import random
-import sys
-import pprint
-import datetime
-import dateutil
-import dateutil.tz
-import tensorflow as tf
 import torch
 import torch.nn as nn
 import nltk
@@ -26,18 +6,8 @@ from torchvision import transforms
 from PIL import Image
 import numpy as np
 from configuration import cfg
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--cfg', dest='cfg_file',
-                        help='optional config file',
-                        default='yaml/coco_eval.yml', type=str)
-    parser.add_argument('--gpu',  dest='gpu_id', type=str, default='0')
-    parser.add_argument('--data_dir', dest='data_dir', type=str, default='')
-    parser.add_argument('--manualSeed', type=int, help='manual seed')
-    args = parser.parse_args()
-    return args
-
+# import stackgan_runner
+# from stackgan_runner import GAN
 
 class TextEmbedding(nn.Module):
   def __init__(self, vocab_size, embedding_dim, kernel_size, rnn_hidden_size):
@@ -116,45 +86,30 @@ def preprocess_text(text):
     text_embedding = model(tokens)
     return text_embedding, token_size
 
-if __name__ == "__main__":
-    args =parse_args()
-    if args.data_dir != '':
-        cfg.DATA_DIR = args.data_dir
-    if args.cfg_file != '':
-        conf(args.cfg_file)
-    if args.gpu_id != -1:
-        cfg.GPU_ID = args.gpu_id
+model = torch.load('stackgan_model22.pth',map_location=torch.device('cpu'))
+model.eval()
 
-    if args.manualSeed is None:
-        args.manualSeed = random.randint(1, 10000)
 
-    now = datetime.datetime.now(dateutil.tz.tzlocal())
-    timestamp = now.strftime('%Y_%m_%d_%H_%M_%S')
-    output_dir = '../output/%s_%s_%s' % \
-                 (cfg.DATASET_NAME, cfg.CONFIG_NAME, timestamp)
 
-    num_gpu = len(cfg.GPU_ID.split(','))
-    if cfg.TRAIN.FLAG:
-        image_transform = transforms.Compose([
-            transforms.RandomCrop(cfg.IMSIZE),
-            transforms.RandomHorizontalFlip(),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-        dataset = DatasetLoadTransform(cfg.DATA_DIR,'train',
-                              imsize=cfg.IMSIZE,
-                              transform=image_transform)
-        assert dataset
-        dataloader = torch.utils.data.DataLoader(
-            dataset, batch_size=cfg.TRAIN.BATCH_SIZE * num_gpu,
-            drop_last=True, shuffle=True, num_workers=int(cfg.WORKERS))
+# Pre-process the input text
+text = "church"
+text_embedding, token_size = preprocess_text(text)
 
-        algo = GAN(output_dir)
-        algo.train(dataloader, cfg.STAGE)
+print(text_embedding)
+nz = cfg.Z_DIM
+# noise = Variable(torch.FloatTensor(batch_size, nz))
+noise = torch.randn(cfg.TRAIN.BATCH_SIZE, 10)
+noise.data.normal_(0, 1)
+noise = noise.view(1,-1)
+# Generate the image
+for i in range(100):
+  with torch.no_grad():
+    image = model(text_embedding, noise)
+    i = i + 1
+# Post-process the image and save it
+image = image[0]
+image = image.squeeze(0)
+image = transforms.ToPILImage()(image)
+image.save('face.jpg')
 
-    else:
-        text = "a kitchen counter with a rounded edge and shelves"
-        text_embedding, token_size = preprocess_text(text)
-        algo = GAN(output_dir)
-        algo.sample(text_embedding, token_size, cfg.STAGE)
-    
 

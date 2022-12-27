@@ -21,14 +21,14 @@ __C.IMAGE_DIR = '../data/train2014'
 __C.VIS_COUNT = 64
 
 __C.Z_DIM = 100
-__C.IMSIZE = 64
-__C.STAGE = 1
+__C.IMSIZE = 1024
+__C.STAGE = 2
 
 
 # Training options
 __C.TRAIN = edict()
-__C.TRAIN.FLAG = True
-__C.TRAIN.BATCH_SIZE = 64
+__C.TRAIN.FLAG = False
+__C.TRAIN.BATCH_SIZE = 10
 __C.TRAIN.MAX_EPOCH = 600
 __C.TRAIN.SNAPSHOT_INTERVAL = 50
 __C.TRAIN.PRETRAINED_MODEL = ''
@@ -43,9 +43,9 @@ __C.TRAIN.COEFF.KL = 2.0
 # Modal options
 __C.GAN = edict()
 __C.GAN.CONDITION_DIM = 128
-__C.GAN.DF_DIM = 64
-__C.GAN.GF_DIM = 128
-__C.GAN.R_NUM = 4
+__C.GAN.DF_DIM = 96
+__C.GAN.GF_DIM = 192
+__C.GAN.R_NUM = 2
 
 __C.TEXT = edict()
 __C.TEXT.DIMENSION = 1024

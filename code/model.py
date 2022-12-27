@@ -8,10 +8,11 @@ class CA_NET(nn.Module):
 
     def __init__(self):
         super(CA_NET, self).__init__()
-        self.t_dim = cfg.TEXT.DIMENSION
-        self.c_dim = cfg.GAN.CONDITION_DIM
-        self.fc = nn.Linear(self.t_dim, self.c_dim * 2, bias=True)
+        self.t_dim = cfg.TEXT.DIMENSION #1024
+        self.c_dim = cfg.GAN.CONDITION_DIM #128
+        self.fc = nn.Linear(self.t_dim, self.c_dim * 2 , bias=True) #linear layer
         self.relu = nn.ReLU()
+
 
     def encode(self, text_embedding):
         x = self.relu(self.fc(text_embedding))
@@ -31,7 +32,7 @@ class CA_NET(nn.Module):
     def forward(self, text_embedding):
         mu, logvar = self.encode(text_embedding)
         c_code = self.reparametrize(mu, logvar)
-        return c_code, mu, 
+        return c_code, mu, logvar
 
 
 #generator network
@@ -101,6 +102,22 @@ class D_GET_LOGITS(nn.Module):
         output = self.outlogits(h_c_code)
         return output.view(-1)
 
+def Conv_k3(in_p, out_p, stride=1):
+    return nn.Conv2d(in_p, out_p, kernel_size=3, stride=stride, padding=1, bias=False)
+
+class Upblock(nn.Module):
+    def __init__(self, inp, outp):
+        super(Upblock, self).__init__()
+        self.up = nn.Upsample(scale_factor=2, mode='nearest')
+        self.conv = Conv_k3(inp, outp)
+        self.batch = nn.BatchNorm2d(outp)
+        self.relu = nn.ReLU(True)
+        
+    def forward(self, x):
+        o = self.up(x)
+        o = self.relu(self.conv(o))
+        o = self.batch(o)
+        return o
 
 class STAGE1_G(nn.Module):
     def __init__(self):
@@ -121,7 +138,6 @@ class STAGE1_G(nn.Module):
             nn.Linear(ninput, ngf * 4 * 4, bias=False),
             nn.BatchNorm1d(ngf * 4 * 4),
             nn.ReLU(True))
-
         # ngf x 4 x 4 -> ngf/2 x 8 x 8
         self.upsample1 = upBlock(ngf, ngf // 2)
         # -> ngf/4 x 16 x 16
@@ -136,6 +152,10 @@ class STAGE1_G(nn.Module):
             nn.Tanh())
 
     def forward(self, text_embedding, noise):
+        # print(text_embedding.shape)
+        # print("###########")
+        # print(noise.shape)
+        #text_embedding=text_embedding.view(-1,100)
         c_code, mu, logvar = self.ca_net(text_embedding)
         z_c_code = torch.cat((noise, c_code), 1)
         h_code = self.fc(z_c_code)
